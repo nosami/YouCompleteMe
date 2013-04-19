@@ -67,6 +67,7 @@ function! youcompleteme#Enable()
     autocmd InsertEnter * call s:OnInsertEnter()
   augroup END
 
+  call s:SetUpCpoptions()
   call s:SetUpCompleteopt()
   call s:SetUpKeyMappings()
 
@@ -150,6 +151,13 @@ function! s:AllowedToCompleteInCurrentFile()
   let blacklist_allows = !has_key( g:ycm_filetype_blacklist, &filetype )
 
   return whitelist_allows && blacklist_allows
+endfunction
+
+
+function! s:SetUpCpoptions()
+  " Without this flag in cpoptions, critical YCM mappings do not work. There's
+  " no way to not have this and have YCM working, so force the flag.
+  set cpoptions+=B
 endfunction
 
 
@@ -412,15 +420,16 @@ function! s:InvokeCompletion()
 endfunction
 
 
-function! s:CompletionsForQuery( query, use_filetype_completer )
+function! s:CompletionsForQuery( query, use_filetype_completer,
+      \ completion_start_column )
   if a:use_filetype_completer
     py completer = ycm_state.GetFiletypeCompleter()
   else
     py completer = ycm_state.GetIdentifierCompleter()
   endif
 
-  " TODO: don't trigger on a dot inside a string constant
-  py completer.CandidatesForQueryAsync( vim.eval( 'a:query' ) )
+  py completer.CandidatesForQueryAsync( vim.eval( 'a:query' ),
+        \ int( vim.eval( 'a:completion_start_column' ) ) )
 
   let l:results_ready = 0
   while !l:results_ready
@@ -473,7 +482,8 @@ function! youcompleteme#Complete( findstart, base )
     endif
     return s:completion_start_column
   else
-    return s:CompletionsForQuery( a:base, s:should_use_filetype_completion )
+    return s:CompletionsForQuery( a:base, s:should_use_filetype_completion,
+          \ s:completion_start_column )
   endif
 endfunction
 
@@ -484,7 +494,7 @@ function! youcompleteme#OmniComplete( findstart, base )
     let s:completion_start_column = pyeval( 'ycm.CompletionStartColumn()' )
     return s:completion_start_column
   else
-    return s:CompletionsForQuery( a:base, 1 )
+    return s:CompletionsForQuery( a:base, 1, s:completion_start_column )
   endif
 endfunction
 

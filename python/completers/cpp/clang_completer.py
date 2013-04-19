@@ -27,6 +27,12 @@ from flags import Flags
 CLANG_FILETYPES = set( [ 'c', 'cpp', 'objc', 'objcpp' ] )
 MAX_DIAGNOSTICS_TO_DISPLAY = int( vimsupport.GetVariableValue(
   "g:ycm_max_diagnostics_to_display" ) )
+USER_COMMANDS_HELP_MESSAGE = """
+Supported commands are:
+  GoToDefinition
+  GoToDeclaration
+  GoToDefinitionElseDeclaration
+See the docs for information on what they do."""
 
 
 class ClangCompleter( Completer ):
@@ -78,7 +84,7 @@ class ClangCompleter( Completer ):
     return files
 
 
-  def CandidatesForQueryAsync( self, query ):
+  def CandidatesForQueryAsync( self, query, start_column ):
     filename = vim.current.buffer.name
 
     if not filename:
@@ -102,8 +108,7 @@ class ClangCompleter( Completer ):
       files = self.GetUnsavedFilesVector()
 
     line, _ = vim.current.window.cursor
-    # TODO: this should be a function parameter
-    column = int( vim.eval( "s:completion_start_column" ) ) + 1
+    column = start_column + 1
     self.completions_future = (
       self.completer.CandidatesForQueryAndLocationInFileAsync(
         query,
@@ -122,6 +127,78 @@ class ClangCompleter( Completer ):
     if not results:
       vimsupport.PostVimMessage( 'No completions found; errors in the file?' )
     return results
+
+
+  def OnUserCommand( self, arguments ):
+    if not arguments:
+      vimsupport.EchoText( USER_COMMANDS_HELP_MESSAGE )
+      return
+
+    command = arguments[ 0 ]
+    if command == 'GoToDefinition':
+      self._GoToDefinition()
+    elif command == 'GoToDeclaration':
+      self._GoToDeclaration()
+    elif command == 'GoToDefinitionElseDeclaration':
+      self._GoToDefinitionElseDeclaration()
+
+
+  def _LocationForGoTo( self, goto_function ):
+    filename = vim.current.buffer.name
+    if not filename:
+      return None
+
+    flags = self.flags.FlagsForFile( filename )
+    if not flags:
+      vimsupport.PostVimMessage( 'Still no compile flags, can\'t compile.' )
+      return None
+
+    files = self.GetUnsavedFilesVector()
+    line, column = vimsupport.CurrentLineAndColumn()
+    # Making the line & column 1-based instead of 0-based
+    line += 1
+    column += 1
+    return getattr( self.completer, goto_function )(
+        filename,
+        line,
+        column,
+        files,
+        flags )
+
+
+  def _GoToDefinition( self ):
+    location = self._LocationForGoTo( 'GetDefinitionLocation' )
+    if not location or not location.IsValid():
+      vimsupport.PostVimMessage( 'Can\'t jump to definition.' )
+      return
+
+    vimsupport.JumpToLocation( location.filename_,
+                               location.line_number_,
+                               location.column_number_ )
+
+
+  def _GoToDeclaration( self ):
+    location = self._LocationForGoTo( 'GetDeclarationLocation' )
+    if not location or not location.IsValid():
+      vimsupport.PostVimMessage( 'Can\'t jump to declaration.' )
+      return
+
+    vimsupport.JumpToLocation( location.filename_,
+                               location.line_number_,
+                               location.column_number_ )
+
+
+  def _GoToDefinitionElseDeclaration( self ):
+    location = self._LocationForGoTo( 'GetDefinitionLocation' )
+    if not location or not location.IsValid():
+      location = self._LocationForGoTo( 'GetDeclarationLocation' )
+    if not location or not location.IsValid():
+      vimsupport.PostVimMessage( 'Can\'t jump to definition or declaration.' )
+      return
+
+    vimsupport.JumpToLocation( location.filename_,
+                               location.line_number_,
+                               location.column_number_ )
 
 
   def OnFileReadyToParse( self ):

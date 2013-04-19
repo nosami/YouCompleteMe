@@ -64,18 +64,14 @@ class JediCompleter( Completer ):
     return [ 'python' ]
 
 
-  def CandidatesForQueryAsyncInner( self, unused_query ):
+  def CandidatesForQueryAsyncInner( self, unused_query, unused_start_column ):
     self._candidates = None
     self._candidates_ready.clear()
     self._query_ready.set()
 
 
   def AsyncCandidateRequestReadyInner( self ):
-    if self._completion_thread.is_alive():
-      return WaitAndClear( self._candidates_ready, timeout=0.005 )
-    else:
-      self._start_completion_thread()
-      return False
+    return WaitAndClear( self._candidates_ready, timeout=0.005 )
 
 
   def CandidatesFromStoredRequestInner( self ):
@@ -105,7 +101,10 @@ class JediCompleter( Completer ):
 
 
 def WaitAndClear( event, timeout=None ):
-    flag_is_set = event.wait( timeout )
-    if flag_is_set:
-        event.clear()
-    return flag_is_set
+  # We can't just do flag_is_set = event.wait( timeout ) because that breaks on
+  # Python 2.6
+  event.wait( timeout )
+  flag_is_set = event.is_set()
+  if flag_is_set:
+      event.clear()
+  return flag_is_set

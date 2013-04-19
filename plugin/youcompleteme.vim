@@ -125,6 +125,7 @@ let g:ycm_semantic_triggers =
       \ get( g:, 'ycm_semantic_triggers', {
       \   'c' : ['->', '.'],
       \   'objc' : ['->', '.'],
+      \   'ocaml' : ['.', '#'],
       \   'cpp,objcpp' : ['->', '.', '::'],
       \   'perl' : ['->'],
       \   'php' : ['->', '::'],
@@ -132,6 +133,9 @@ let g:ycm_semantic_triggers =
       \   'lua' : ['.', ':'],
       \   'erlang' : [':'],
       \ } )
+
+let g:ycm_cache_omnifunc =
+      \ get( g:, 'ycm_cache_omnifunc', 1 )
 
 " On-demand loading. Let's use the autoload folder and not slow down vim's
 " startup procedure.
