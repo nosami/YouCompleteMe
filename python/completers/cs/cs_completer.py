@@ -24,20 +24,6 @@ from completers.completer import Completer
 import vimsupport
 
 import sys
-#from os.path import join, abspath, dirname
-
-# We need to add the jedi package to sys.path, but it's important that we clean
-# up after ourselves, because ycm.YouCompletMe.GetFiletypeCompleterForFiletype
-# removes sys.path[0] after importing completers.python.hook
-#sys.path.insert( 0, join( abspath( dirname( __file__ ) ), 'jedi' ) )
-#try:
-#  from jedi import Script
-#except ImportError:
-vimsupport.PostVimMessage(
-    'Error importing jedi. Make sure the jedi submodule has been checked out. '
-    'In the YouCompleteMe folder, run "git submodule update --init --recursive"')
-sys.path.pop( 0 )
-
 
 class CsharpCompleter( Completer ):
   """
@@ -64,18 +50,14 @@ class CsharpCompleter( Completer ):
     return [ 'cs' ]
 
 
-  def CandidatesForQueryAsyncInner( self, unused_query ):
+  def CandidatesForQueryAsyncInner( self, unused_query, unused_start_column ):
     self._candidates = None
     self._candidates_ready.clear()
     self._query_ready.set()
 
 
   def AsyncCandidateRequestReadyInner( self ):
-    if self._completion_thread.is_alive():
-      return WaitAndClear( self._candidates_ready, timeout=0.005 )
-    else:
-      self._start_completion_thread()
-      return False
+    return WaitAndClear( self._candidates_ready, timeout=0.005 )
 
 
   def CandidatesFromStoredRequestInner( self ):
@@ -107,7 +89,10 @@ class CsharpCompleter( Completer ):
 
 
 def WaitAndClear( event, timeout=None ):
-    flag_is_set = event.wait( timeout )
-    if flag_is_set:
-        event.clear()
-    return flag_is_set
+  # We can't just do flag_is_set = event.wait( timeout ) because that breaks on
+  # Python 2.6
+  event.wait( timeout )
+  flag_is_set = event.is_set()
+  if flag_is_set:
+      event.clear()
+  return flag_is_set
