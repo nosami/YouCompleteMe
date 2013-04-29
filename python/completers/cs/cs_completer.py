@@ -25,6 +25,27 @@ import vimsupport
 
 import sys
 
+# Import stuff for Omnisharp
+import vim, urllib2, urllib, urlparse, logging, json, os, os.path, cgi
+from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+from SocketServer import ThreadingMixIn
+
+#Config for Omnisharp
+logger = logging.getLogger('omnisharp')
+logger.setLevel(logging.WARNING)
+
+log_dir = os.path.join(vim.eval('expand("<sfile>:p:h")'), '..', 'log')
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+hdlr = logging.FileHandler(os.path.join(log_dir, 'python.log'))
+logger.addHandler(hdlr) 
+
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+hdlr.setFormatter(formatter)
+
+
+
+
 class CsharpCompleter( Completer ):
   """
   A Completer that uses the Jedi completion engine.
@@ -69,24 +90,43 @@ class CsharpCompleter( Completer ):
       try:
         WaitAndClear( self._query_ready )
 
-        #filename = vim.current.buffer.name
-        #line, column = vimsupport.CurrentLineAndColumn()
-        # Jedi expects lines to start at 1, not 0
-        #line += 1
-        #contents = '\n'.join( vim.current.buffer )
-        #script = Script( contents, line, column, filename )
-
-        #self._candidates = [ { 'word': str( completion.word ),
-        #                       'menu': str( completion.description ),
-        #                       'info': str( completion.doc ) }
-        #                    for completion in script.complete() ]
-        #dummy override
-        self._candidates = [ { 'word': "Hello world" , 'menu': "description",'description': "no info"}]
+        self._candidates = [ { 'word': str( completion['CompletionText'] ),
+                               'menu': str( completion['Description'] ),
+                               'info': str( completion['DisplayText']) }
+                            for completion in self.getCompletions() ]
       except:
         self._query_ready.clear()
         self._candidates = []
       self._candidates_ready.set()
 
+
+  #All of these functions take vim variable names as parameters
+  def getCompletions(self):
+    js = self.getResponse('/autocomplete')
+
+    if(js != ''):
+      completions = json.loads(js)
+      return completions
+    return []
+  
+  
+  def getResponse(self, endPoint, additionalParameters=None):
+    parameters = {}
+    parameters['line'], parameters['column'] = vimsupport.CurrentLineAndColumn()
+    parameters['buffer'] = '\n'.join( vim.current.buffer )
+    parameters['filename'] = vim.current.buffer.name
+
+    if(additionalParameters != None):
+      parameters.update(additionalParameters)
+
+    target = urlparse.urljoin(vim.eval('g:OmniSharp_host'), endPoint)
+    parameters = urllib.urlencode(parameters)
+    try:
+      response = urllib2.urlopen(target, parameters)
+      return response.read()
+    except:
+      vim.command("echoerr 'Could not connect to " + target + "'")
+      return ''
 
 def WaitAndClear( event, timeout=None ):
   # We can't just do flag_is_set = event.wait( timeout ) because that breaks on
@@ -94,5 +134,5 @@ def WaitAndClear( event, timeout=None ):
   event.wait( timeout )
   flag_is_set = event.is_set()
   if flag_is_set:
-      event.clear()
+    event.clear()
   return flag_is_set
