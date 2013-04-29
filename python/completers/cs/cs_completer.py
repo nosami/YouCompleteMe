@@ -23,12 +23,12 @@ from threading import Thread, Event
 from completers.completer import Completer
 import vimsupport
 
-import sys
+#import sys
 
 # Import stuff for Omnisharp
-import vim, urllib2, urllib, urlparse, logging, json, os, os.path, cgi
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from SocketServer import ThreadingMixIn
+import urllib2, urllib, urlparse, logging, json, os, os.path #, cgi
+#from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
+#from SocketServer import ThreadingMixIn
 
 #Config for Omnisharp
 logger = logging.getLogger('omnisharp')
@@ -42,8 +42,6 @@ logger.addHandler(hdlr)
 
 formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
 hdlr.setFormatter(formatter)
-
-
 
 
 class CsharpCompleter( Completer ):
@@ -100,10 +98,9 @@ class CsharpCompleter( Completer ):
       self._candidates_ready.set()
 
 
-  #All of these functions take vim variable names as parameters
   def getCompletions(self):
+    '''Ask server for completions'''
     js = self.getResponse('/autocomplete')
-
     if(js != ''):
       completions = json.loads(js)
       return completions
@@ -111,6 +108,7 @@ class CsharpCompleter( Completer ):
   
   
   def getResponse(self, endPoint, additionalParameters=None):
+    '''Handle communication with server'''
     parameters = {}
     parameters['line'], parameters['column'] = vimsupport.CurrentLineAndColumn()
     parameters['buffer'] = '\n'.join( vim.current.buffer )
@@ -119,7 +117,7 @@ class CsharpCompleter( Completer ):
     if(additionalParameters != None):
       parameters.update(additionalParameters)
 
-    target = urlparse.urljoin(vim.eval('g:OmniSharp_host'), endPoint)
+    target = urlparse.urljoin(vim.eval('g:OmniSharp_host'), endPoint) #default is 2000, set in my vimrc
     parameters = urllib.urlencode(parameters)
     try:
       response = urllib2.urlopen(target, parameters)
