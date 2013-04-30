@@ -23,26 +23,12 @@ from threading import Thread, Event
 from completers.completer import Completer
 import vimsupport
 
-#import sys
-
 # Import stuff for Omnisharp
-import urllib2, urllib, urlparse, logging, json, os, os.path #, cgi
-#from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-#from SocketServer import ThreadingMixIn
+import urllib2, urllib, urlparse, logging, json
 
 #Config for Omnisharp
 logger = logging.getLogger('omnisharp')
 logger.setLevel(logging.WARNING)
-
-log_dir = os.path.join(vim.eval('expand("<sfile>:p:h")'), '..', 'log')
-if not os.path.exists(log_dir):
-    os.makedirs(log_dir)
-hdlr = logging.FileHandler(os.path.join(log_dir, 'python.log'))
-logger.addHandler(hdlr) 
-
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-hdlr.setFormatter(formatter)
-
 
 class CsharpCompleter( Completer ):
   """
@@ -92,7 +78,8 @@ class CsharpCompleter( Completer ):
                                'menu': str( completion['Description'] ),
                                'info': str( completion['DisplayText']) }
                             for completion in self.getCompletions() ]
-      except:
+      except Exception, e:
+        vim.command("echoerr '"+str(e)+"'")
         self._query_ready.clear()
         self._candidates = []
       self._candidates_ready.set()
@@ -100,23 +87,22 @@ class CsharpCompleter( Completer ):
 
   def getCompletions(self):
     '''Ask server for completions'''
-    js = self.getResponse('/autocomplete')
+    line, column = vimsupport.CurrentLineAndColumn()
+
+    parameters = {}
+    parameters['line'], parameters['column'] = line + 1, column + 1
+    parameters['buffer'] = '\n'.join( vim.current.buffer )
+    parameters['filename'] = vim.current.buffer.name
+
+    js = self.getResponse('/autocomplete', parameters)
     if(js != ''):
       completions = json.loads(js)
       return completions
     return []
   
   
-  def getResponse(self, endPoint, additionalParameters=None):
+  def getResponse(self, endPoint, parameters={}):
     '''Handle communication with server'''
-    parameters = {}
-    parameters['line'], parameters['column'] = vimsupport.CurrentLineAndColumn()
-    parameters['buffer'] = '\n'.join( vim.current.buffer )
-    parameters['filename'] = vim.current.buffer.name
-
-    if(additionalParameters != None):
-      parameters.update(additionalParameters)
-
     target = urlparse.urljoin(vim.eval('g:OmniSharp_host'), endPoint) #default is 2000, set in my vimrc
     parameters = urllib.urlencode(parameters)
     try:
