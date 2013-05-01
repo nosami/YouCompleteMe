@@ -67,6 +67,10 @@ YCM also provides semantic go-to-definition/declaration commands for C-family
 languages. Expect more IDE features powered by the various YCM semantic engines
 in the future.
 
+You'll also find that YCM has filepath completers (try typing `./` in a file)
+and a completer that integrates with [UltiSnips][].
+
+
 Mac OS X super-quick installation
 ---------------------------------
 
@@ -255,27 +259,9 @@ notify you to recompile it. You should then rerun the install process.
     with `.dylib` on a Mac). Again, this flag would be used _instead of_ the
     other flags.
 
-5.  [Complete this step ONLY if you care about semantic completion support for
-    C-family languages. Otherwise it's not neccessary.]
-
-    **Copy the libclang library file into the `YouCompleteMe/python` folder.**
-    The library file is `libclang.so` on Linux and `libclang.dylib` on Mac.
-
-    We'll assume you downloaded a binary distribution of LLVM+Clang from
-    llvm.org in step 3 and that you extracted the archive file to folder
-    `~/ycm_temp/llvm_root_dir` (with `bin`, `lib`, `include` etc. folders right
-    inside that folder).
-
-    We'll also assume you installed YCM with Vundle. That means that the
-    top-level YCM directory is in `~/.vim/bundle/YouCompleteMe`.
-
-    On Linux, run: `cp ~/ycm_temp/llvm_root_dir/lib/libclang.so ~/.vim/bundle/YouCompleteMe/python`
-
-    On Mac, run: `cp ~/ycm_temp/llvm_root_dir/lib/libclang.dylib ~/.vim/bundle/YouCompleteMe/python`
-
-    **DO NOT FORGET THIS STEP**. If you forget to copy over `libclang.so`
-    version 3.2 into the `YouCompleteMe/python` folder then YCM _will not work_
-    if you selected C-family support during YCM compilation.
+    Running the `make` command will also place the `libclang.[so|dylib]` in the
+    `YouCompleteMe/python` folder for you if you compiled with clang support (it
+    needs to be there for YCM to work).
 
 That's it. You're done. Refer to the _User Guide_ section on how to use YCM.
 Don't forget that if you want the C-family semantic completion engine to work,
@@ -564,10 +550,10 @@ restart Vim for the changes to take effect.
 ### The `g:ycm_min_num_of_chars_for_completion` option
 
 This option controls the number of characters the user needs to type before
-identifier-base completion suggestions are triggered. For example, if the option
-is set to `2`, then when the user types a second alphanumeric character after a
-whitespace character, completion suggestions will be triggered. This option is
-NOT used for semantic completion.
+identifier-based completion suggestions are triggered. For example, if the
+option is set to `2`, then when the user types a second alphanumeric character
+after a whitespace character, completion suggestions will be triggered. This
+option is NOT used for semantic completion.
 
 Setting this option to a high number like `99` effectively turns off the
 identifier completion engine and just leaves the semantic engine.
@@ -677,14 +663,29 @@ Default: `1`
 
     let g:ycm_allow_changing_updatetime = 1
 
-### The `g:ycm_complete_in_comments_and_strings` option
+### The `g:ycm_complete_in_comments` option
 
 When this option is set to `1`, YCM will show the completion menu even when
-typing inside strings and comments.
+typing inside comments.
 
 Default: `0`
 
-    let g:ycm_complete_in_comments_and_strings = 0
+    let g:ycm_complete_in_comments = 0
+
+### The `g:ycm_complete_in_strings` option
+
+When this option is set to `1`, YCM will show the completion menu even when
+typing inside strings.
+
+Note that this is turned on by default so that you can use the filename
+completion inside strings. This is very useful for instance in C-family files
+where typing `#include "` will trigger the start of filename completion. If you
+turn off this option, you will turn off filename completion in such situations
+as well.
+
+Default: `1`
+
+    let g:ycm_complete_in_strings = 1
 
 ### The `g:ycm_collect_identifiers_from_comments_and_strings` option
 
@@ -782,10 +783,11 @@ after typing `.`, `->` and `::` in insert mode (if semantic completion support
 has been compiled in). This key mapping can be used to trigger semantic
 completion anywhere. Useful for searching for top-level functions and classes.
 
-Note that the default of `<C-Space>` means Ctrl-Space. Also note that the
-default mapping will probably only work in GUI Vim (Gvim or MacVim) and not in
-plain console Vim because the terminal usually does not forward modifier key
-combinations to Vim.
+Console Vim (not Gvim or MacVim) passes `<Nul>` to Vim when the user types
+`<C-Space>` so YCM will make sure that `<Nul>` is used in the map command when
+you're editing in console Vim, and `<C-Space>` in GUI Vim. This means that you
+can just press `<C-Space>` in both console and GUI Vim and YCM will do the right
+thing.
 
 Setting this option to an empty string will make sure no mapping is created.
 
@@ -859,6 +861,17 @@ Example:
 Default: `[]`
 
     let g:ycm_extra_conf_globlist = []
+
+### The `g:ycm_filepath_completion_use_working_dir` option
+
+By default, YCM's filepath completion will interpret relative paths like `../`
+as being relative to the folder of the file of the currently active buffer.
+Setting this option will force YCM to always interpret relative paths as being
+relative to Vim's current working directory.
+
+Default: `0`
+
+    let g:ycm_filepath_completion_use_working_dir = 0
 
 ### The `g:ycm_semantic_triggers` option
 
@@ -981,6 +994,12 @@ will tell you what was the key combination that failed.
 Look in the _Options_ section and see if which of the default mappings conflict
 with your own. Then change that option value to something else so that the
 conflict goes away.
+
+### I get `'GLIBC_2.XX' not found (required by libclang.so)` when starting Vim
+
+Your system is too old for the precompiled binaries from llvm.org. Compile
+Clang on your machine and then link against the `libclang.so` you just produced.
+See the full installation guide for help.
 
 ### I'm trying to use a Homebrew Vim with YCM and I'm getting segfaults
 
@@ -1139,3 +1158,4 @@ This software is licensed under the [GPL v3 license][gpl].
 [win-wiki]: https://github.com/Valloric/YouCompleteMe/wiki/Windows-Installation-Guide
 [eclim]: http://eclim.org/
 [jedi]: https://github.com/davidhalter/jedi
+[ultisnips]: https://github.com/SirVer/ultisnips/blob/master/doc/UltiSnips.txt

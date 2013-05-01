@@ -22,6 +22,7 @@ from collections import defaultdict
 import vim
 import vimsupport
 import ycm_core
+import extra_conf_store
 from flags import Flags
 
 CLANG_FILETYPES = set( [ 'c', 'cpp', 'objc', 'objcpp' ] )
@@ -286,9 +287,13 @@ class ClangCompleter( Completer ):
 
   def DebugInfo( self ):
     filename = vim.current.buffer.name
+    if not filename:
+      return ''
     flags = self.flags.FlagsForFile( filename ) or []
-    source = self.flags.ModuleForFile( filename )
-    return 'Flags for {0} loaded from {1}:\n{2}'.format( filename, source, list( flags ) )
+    source = extra_conf_store.ModuleFileForSourceFile( filename )
+    return 'Flags for {0} loaded from {1}:\n{2}'.format( filename,
+                                                         source,
+                                                         list( flags ) )
 
 
 # TODO: make these functions module-local
@@ -329,4 +334,9 @@ def DiagnosticsToDiagStructure( diagnostics ):
 def ClangAvailableForBuffer( buffer_object ):
   filetypes = vimsupport.FiletypesForBuffer( buffer_object )
   return any( [ filetype in CLANG_FILETYPES for filetype in filetypes ] )
+
+
+def InCFamilyFile():
+  return any( [ filetype in CLANG_FILETYPES for filetype in
+                vimsupport.CurrentFiletypes() ] )
 

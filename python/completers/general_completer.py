@@ -17,28 +17,21 @@
 # You should have received a copy of the GNU General Public License
 # along with YouCompleteMe.  If not, see <http://www.gnu.org/licenses/>.
 
-import os
+from completer import Completer
 
-# Given an iterable object that produces strings (flags for Clang), removes the
-# '-c' and '-o' options that Clang does not like to see when it's producing
-# completions for a file.
-def PrepareClangFlags( flags, filename ):
-  new_flags = []
-  skip = True
-  for flag in flags:
-    if skip:
-      skip = False
-      continue
+class GeneralCompleter( Completer ):
+  """
+  A base class for General completers in YCM. A general completer is used in all
+  filetypes.
 
-    if flag == '-c':
-      continue
+  Because this is a subclass of Completer class, you should refer to the
+  Completer class documentation. Do NOT use this class for semantic completers!
+  Subclass Completer directly.
 
-    if flag == '-o':
-      skip = True;
-      continue
+  """
+  def __init__( self ):
+    super( GeneralCompleter, self ).__init__()
 
-    if flag == filename or os.path.realpath(flag) == filename:
-      continue
 
-    new_flags.append( flag )
-  return new_flags
+  def SupportedFiletypes( self ):
+    return set()
