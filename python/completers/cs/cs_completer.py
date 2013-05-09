@@ -24,103 +24,107 @@ from completers.completer import Completer
 import vimsupport
 
 # Import stuff for Omnisharp
-import urllib2, urllib, urlparse, logging, json
+import urllib2
+import urllib
+import urlparse
+import logging
+import json
 
-#Config for Omnisharp
-logger = logging.getLogger('omnisharp')
-logger.setLevel(logging.WARNING)
-
-class CsharpCompleter( Completer ):
-  """
-  A Completer that uses the Omnisharp completion engine.
-  """
-
-  def __init__( self ):
-    super( CsharpCompleter, self ).__init__()
-    self._query_ready = Event()
-    self._candidates_ready = Event()
-    self._candidates = None
-    self._start_completion_thread()
-    #TODO:
-    #find path to solution file
-    #if not server running with path to solution file
-        #find path to omnisharp executable
-        #start server with path to solution file
+# Config for Omnisharp
+#logger = logging.getLogger('omnisharp')
+#logger.setLevel(logging.WARNING)
 
 
-  def _start_completion_thread( self ):
-    self._completion_thread = Thread( target=self.SetCandidates )
-    self._completion_thread.daemon = True
-    self._completion_thread.start()
+class CsharpCompleter(Completer):
+    """
+    A Completer that uses the Omnisharp completion engine.
+    """
+
+    def __init__(self):
+        super(CsharpCompleter, self).__init__()
+        self._query_ready = Event()
+        self._candidates_ready = Event()
+        self._candidates = None
+        self._start_completion_thread()
+
+        # Disable Omnisharps default completer
+        #vim.command("setlocal omnifunc=OmniSharp#Complete")
+        #vim.command("set completeopt=longest,menuone,preview")
+
+        # TODO:
+        # find path to solution file
+        # if not server running with path to solution file
+            # find path to omnisharp executable
+            # start server with path to solution file
+
+    def _start_completion_thread(self):
+        self._completion_thread = Thread(target=self.SetCandidates)
+        self._completion_thread.daemon = True
+        self._completion_thread.start()
+
+    def SupportedFiletypes(self):
+        """ Just csharp """
+        return ['cs']
+
+    def CandidatesForQueryAsyncInner(self, unused_query, unused_start_column):
+        self._candidates = None
+        self._candidates_ready.clear()
+        self._query_ready.set()
+
+    def AsyncCandidateRequestReadyInner(self):
+        return WaitAndClear(self._candidates_ready, timeout=0.005)
+
+    def CandidatesFromStoredRequestInner(self):
+        return self._candidates or []
+
+    def SetCandidates(self):
+        while True:
+            try:
+                WaitAndClear(self._query_ready)
+
+                self._candidates = [{'word': str(completion['CompletionText']),
+                                     'menu': str(completion['DisplayText']),
+                                     'info': str(completion['Description'])}
+                                    for completion in self.getCompletions()]
+            except Exception, e:
+                vim.command("echoerr '" + str(e) + "'")
+                self._query_ready.clear()
+                self._candidates = []
+            self._candidates_ready.set()
+
+    def getCompletions(self):
+        '''Ask server for completions'''
+        line, column = vimsupport.CurrentLineAndColumn()
+
+        parameters = {}
+        parameters['line'], parameters['column'] = line + 1, column + 1
+        parameters['buffer'] = '\n'.join(vim.current.buffer)
+        parameters['filename'] = vim.current.buffer.name
+
+        js = self.getResponse('/autocomplete', parameters)
+        if(js != ''):
+            completions = json.loads(js)
+            return completions
+        return []
+
+    def getResponse(self, endPoint, parameters={}):
+        '''Handle communication with server'''
+        target = urlparse.urljoin(vim.eval(
+            'g:OmniSharp_host'), endPoint)  # default is 2000, set in my vimrc
+        parameters = urllib.urlencode(parameters)
+        try:
+            response = urllib2.urlopen(target, parameters)
+            return response.read()
+        except:
+            vim.command("echoerr 'Could not connect to " + target + "'")
+            return ''
 
 
-  def SupportedFiletypes( self ):
-    """ Just csharp """
-    return [ 'cs' ]
-
-
-  def CandidatesForQueryAsyncInner( self, unused_query, unused_start_column ):
-    self._candidates = None
-    self._candidates_ready.clear()
-    self._query_ready.set()
-
-
-  def AsyncCandidateRequestReadyInner( self ):
-    return WaitAndClear( self._candidates_ready, timeout=0.005 )
-
-
-  def CandidatesFromStoredRequestInner( self ):
-    return self._candidates or []
-
-
-  def SetCandidates( self ):
-    while True:
-      try:
-        WaitAndClear( self._query_ready )
-
-        self._candidates = [ { 'word': str( completion['CompletionText'] ),
-                               'menu': str( completion['Description'] ),
-                               'info': str( completion['DisplayText']) }
-                            for completion in self.getCompletions() ]
-      except Exception, e:
-        vim.command("echoerr '"+str(e)+"'")
-        self._query_ready.clear()
-        self._candidates = []
-      self._candidates_ready.set()
-
-
-  def getCompletions(self):
-    '''Ask server for completions'''
-    line, column = vimsupport.CurrentLineAndColumn()
-
-    parameters = {}
-    parameters['line'], parameters['column'] = line + 1, column + 1
-    parameters['buffer'] = '\n'.join( vim.current.buffer )
-    parameters['filename'] = vim.current.buffer.name
-
-    js = self.getResponse('/autocomplete', parameters)
-    if(js != ''):
-      completions = json.loads(js)
-      return completions
-    return []
-  
-  
-  def getResponse(self, endPoint, parameters={}):
-    '''Handle communication with server'''
-    target = urlparse.urljoin(vim.eval('g:OmniSharp_host'), endPoint) #default is 2000, set in my vimrc
-    parameters = urllib.urlencode(parameters)
-    try:
-      response = urllib2.urlopen(target, parameters)
-      return response.read()
-    except:
-      vim.command("echoerr 'Could not connect to " + target + "'")
-      return ''
-
-def WaitAndClear( event, timeout=None ):
-  # We can't just do flag_is_set = event.wait( timeout ) because that breaks on
-  # Python 2.6
-  event.wait( timeout )
-  flag_is_set = event.is_set()
-  if flag_is_set:
-    event.clear()
-  return flag_is_set
+def WaitAndClear(event, timeout=None):
+    # We can't just do flag_is_set = event.wait( timeout ) because that breaks
+    # on Python 2.6
+    event.wait(timeout)
+    flag_is_set = event.is_set()
+    if flag_is_set:
+        event.clear()
+    return flag_is_set
