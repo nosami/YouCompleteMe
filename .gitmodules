@@ -1,6 +1,3 @@
 [submodule "python/completers/python/jedi"]
 	path = python/completers/python/jedi
 	url = https://github.com/davidhalter/jedi.git
-[submodule "python/completers/cs/cs_completer/NRefactory"]
-	path = python/completers/cs/cs_completer/NRefactory
-	url = https://github.com/icsharpcode/NRefactory.git

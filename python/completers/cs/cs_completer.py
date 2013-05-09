@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2011, 2012  Stephen Sugden <me@stephensugden.com>
+# Copyright (C) 2011, 2012  Chiel ten Brinke <ctenbrinke@gmail.com>
 #                           Strahinja Val Markovic <val@markovic.io>
 #
 # This file is part of YouCompleteMe.
@@ -32,8 +32,7 @@ logger.setLevel(logging.WARNING)
 
 class CsharpCompleter( Completer ):
   """
-  A Completer that uses the Jedi completion engine.
-  https://jedi.readthedocs.org/en/latest/
+  A Completer that uses the Omnisharp completion engine.
   """
 
   def __init__( self ):
@@ -42,6 +41,11 @@ class CsharpCompleter( Completer ):
     self._candidates_ready = Event()
     self._candidates = None
     self._start_completion_thread()
+    #TODO:
+    #find path to solution file
+    #if not server running with path to solution file
+        #find path to omnisharp executable
+        #start server with path to solution file
 
 
   def _start_completion_thread( self ):
